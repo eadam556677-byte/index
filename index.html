@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADAM-CORE v1.0</title>
+    <style>
+        body { background-color: #0d1117; color: #e6edf3; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        #chat-container { width: 100%; max-width: 450px; height: 90vh; background: #161b22; border: 1px solid #30363d; border-radius: 15px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #chat-header { padding: 15px; background: #21262d; border-bottom: 1px solid #30363d; display: flex; align-items: center; gap: 10px; font-weight: bold; letter-spacing: 1px; }
+        .status-dot { width: 10px; height: 10px; background: #238636; border-radius: 50%; box-shadow: 0 0 8px #238636; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        #chat-window { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
+        .msg { max-width: 85%; padding: 12px 16px; border-radius: 15px; line-height: 1.4; font-size: 0.95rem; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .ai { align-self: flex-start; background: #21262d; border: 1px solid #30363d; border-bottom-right-radius: 2px; }
+        .user { align-self: flex-end; background: #238636; color: white; border-bottom-left-radius: 2px; }
+        #typing-indicator { padding: 5px 20px; font-size: 0.75rem; color: #8b949e; display: none; margin-bottom: 10px; }
+        #input-area { padding: 15px; background: #21262d; display: flex; gap: 10px; border-top: 1px solid #30363d; }
+        input { flex: 1; background: #0d1117; border: 1px solid #30363d; padding: 12px; border-radius: 8px; color: white; outline: none; }
+        input:focus { border-color: #58a6ff; }
+        button { background: #238636; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { background: #2ea043; }
+    </style>
+</head>
+<body>
+
+<div id="chat-container">
+    <div id="chat-header"><div class="status-dot"></div><span>ADAM-CORE v1.0</span></div>
+    <div id="chat-window" id="chatWindow">
+        <div class="msg ai">نظام ADAM-CORE متصل الآن. أنا النسخة الرقمية، جاهز لاستقبال بياناتك.</div>
+    </div>
+    <div id="typing-indicator">جاري معالجة البيانات واستدعاء البروتوكول...</div>
+    <div id="input-area">
+        <input type="text" id="user-input" placeholder="اكتب رسالتك للمطور..." onkeypress="if(event.key==='Enter')sendMessage()">
+        <button onclick="sendMessage()">إرسال</button>
+    </div>
+</div>
+
+<script>
+    const chatWindow = document.getElementById('chat-window');
+    const typingIndicator = document.getElementById('typing-indicator');
+    
+    // بياناتك الجديدة اللي بعتها
+    const sheetId = '1QR1uIkwKpdBwd8OOWVu5B-w4Y7YXqWFnXAGb7AlGsqc';
+    const webhookURL = "https://eoe7dpi82t0z9zs.m.pipedream.net"; 
+    
+    let lastSeenRow = 0;
+
+    // 1. إرسال من الموقع لتليجرام
+    async function sendMessage() {
+        const input = document.getElementById('user-input');
+        const text = input.value.trim();
+        if (!text) return;
+
+        addMessage(text, 'user');
+        input.value = "";
+        typingIndicator.style.display = 'block';
+
+        try {
+            await fetch(webhookURL, {
+                method: 'POST',
+                body: JSON.stringify({ message: text })
+            });
+        } catch (e) { console.log("Sent to ADAM-CORE"); }
+    }
+
+    // 2. قراءة الرد من الإكسيل الجديد
+    async function checkReply() {
+        try {
+            const response = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&t=${new Date().getTime()}`);
+            const text = await response.text();
+            const json = JSON.parse(text.substr(47).slice(0, -2));
+            const rows = json.table.rows;
+
+            if (lastSeenRow === 0) {
+                lastSeenRow = rows.length;
+                return;
+            }
+
+            if (rows.length > lastSeenRow) {
+                // بياخد آخر رد أنت كتبته في تليجرام ووصل الإكسيل
+                const latestReply = rows[rows.length - 1].c[0].v;
+                typingIndicator.style.display = 'none';
+                addMessage(latestReply, 'ai');
+                lastSeenRow = rows.length;
+            }
+        } catch (e) { console.log("Waiting for Adam..."); }
+    }
+
+    function addMessage(text, sender) {
+        const div = document.createElement('div');
+        div.className = `msg ${sender}`;
+        div.innerText = text;
+        chatWindow.appendChild(div);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    setInterval(checkReply, 3000); // بيفحص الجدول كل 3 ثواني
+</script>
+
+</body>
+</html>
